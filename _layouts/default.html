@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if page.title %}{{ page.title }} | {{ site.title }}{% else %}{{ site.title }} — {{ site.description }}{% endif %}</title>
+  <meta name="description" content="{% if page.excerpt %}{{ page.excerpt | strip_html | truncate: 160 }}{% else %}{{ site.description }}{% endif %}">
+  <link rel="canonical" href="{{ page.url | absolute_url }}">
+  <meta property="og:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
+  <meta property="og:url" content="{{ page.url | absolute_url }}">
+  <meta property="og:site_name" content="{{ site.title }}">
+  <meta property="og:locale" content="es_MX">
+  <link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}">
+  {% if site.adsense_publisher %}
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ site.adsense_publisher }}" crossorigin="anonymous"></script>
+  {% endif %}
+  {% seo %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-top">
+      <div class="container">
+        <span id="current-date"></span>
+        <div class="ticker-wrap">
+          <span class="ticker-text">📍 México · Mundo · Tecnología · Economía · Deportes · Política</span>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="header-main">
+        <a href="{{ '/' | relative_url }}" class="site-logo">
+          <div>
+            <div>
+              <span class="logo-noti">NOTI</span><span class="logo-dot"></span><span class="logo-rapido">RÁPIDO</span>
+            </div>
+            <div class="logo-tagline">Noticias de México y el Mundo</div>
+          </div>
+        </a>
+        <div style="text-align:right;">
+          <a href="https://facebook.com/TU-PAGINA-AQUI" target="_blank" rel="noopener" style="color:#1877F2;font-size:1.5rem;">📘</a>
+        </div>
+      </div>
+    </div>
+    <nav class="site-nav">
+      <div class="container">
+        <ul class="nav-list">
+          <li><a href="{{ '/' | relative_url }}">🏠 Inicio</a></li>
+          <li><a href="{{ '/categoria/mexico/' | relative_url }}">🇲🇽 México</a></li>
+          <li><a href="{{ '/categoria/mundo/' | relative_url }}">🌍 Mundo</a></li>
+          <li><a href="{{ '/categoria/politica/' | relative_url }}">🏛️ Política</a></li>
+          <li><a href="{{ '/categoria/economia/' | relative_url }}">💰 Economía</a></li>
+          <li><a href="{{ '/categoria/tecnologia/' | relative_url }}">💻 Tecnología</a></li>
+          <li><a href="{{ '/categoria/deportes/' | relative_url }}">⚽ Deportes</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    {{ content }}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="{{ '/' | relative_url }}">
+            <span class="logo-noti" style="font-size:1.8rem;">NOTI</span><span class="logo-rapido" style="font-size:1.8rem;">RÁPIDO</span>
+          </a>
+          <p>Tu fuente de noticias de México y el mundo. Información rápida y relevante.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Categorías</h4>
+          <ul>
+            <li><a href="{{ '/categoria/mexico/' | relative_url }}">México</a></li>
+            <li><a href="{{ '/categoria/mundo/' | relative_url }}">Mundo</a></li>
+            <li><a href="{{ '/categoria/politica/' | relative_url }}">Política</a></li>
+            <li><a href="{{ '/categoria/economia/' | relative_url }}">Economía</a></li>
+            <li><a href="{{ '/categoria/tecnologia/' | relative_url }}">Tecnología</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="{{ '/politica-privacidad/' | relative_url }}">Privacidad</a></li>
+            <li><a href="{{ '/acerca-de/' | relative_url }}">Acerca de</a></li>
+            <li><a href="{{ '/contacto/' | relative_url }}">Contacto</a></li>
+            <li><a href="{{ '/politica-editorial/' | relative_url }}">Política Editorial</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Síguenos</h4>
+          <ul>
+            <li><a href="https://facebook.com/TU-PAGINA-AQUI" target="_blank" rel="noopener">📘 Facebook</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="container" style="display:flex;justify-content:space-between;width:100%;">
+        <span>© {{ 'now' | date: "%Y" }} NotiRápido. Todos los derechos reservados.</span>
+        <span>Hecho con ❤️ en México 🇲🇽</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const fechaEl = document.getElementById('current-date');
+    if (fechaEl) {
+      const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric', timeZone:'America/Mexico_City' };
+      fechaEl.textContent = new Date().toLocaleDateString('es-MX', opts);
+    }
+  </script>
+</body>
+</html>
