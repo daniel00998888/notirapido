@@ -2,7 +2,7 @@ name: Automatizacion de Noticias PulsoMX
 
 on:
   schedule:
-    - cron: '0 */0.5 * * *' # Se ejecuta solo cada 4 horas
+    - cron: '0 */1 * * *' # Se ejecuta solo cada 4 horas
   workflow_dispatch: # Nos da un botón para ejecutarlo manualmente cuando queramos
 
 permissions:
