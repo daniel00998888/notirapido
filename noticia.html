@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulsoMX</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+    <header class="bg-red-700 text-white shadow-md p-4">
+        <div class="container mx-auto">
+            <a href="index.html" class="text-2xl font-black tracking-tight">⚡ PULSO<span class="text-yellow-400">MX</span></a>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 max-w-3xl mt-6">
+        <a href="index.html" class="text-red-700 font-bold text-sm hover:underline">← Volver al inicio</a>
+        
+        <article id="content" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mt-4 hidden">
+            <span id="date" class="text-xs font-bold text-red-600 uppercase"></span>
+            <h1 id="title" class="text-2xl md:text-4xl font-black mt-2 mb-4 text-slate-800 leading-tight"></h1>
+            <img id="image" class="w-full h-80 object-cover rounded-lg mb-6 shadow-inner">
+            
+            <div class="bg-slate-100 p-4 my-4 text-center text-xs text-slate-400 tracking-widest rounded border border-dashed border-slate-300">PUBLICIDAD ADSENSE</div>
+
+            <div id="body" class="text-slate-700 text-lg leading-relaxed space-y-4 whitespace-pre-line"></div>
+        </article>
+
+        <div id="loader" class="text-center py-12 text-slate-500 animate-pulse">Buscando el reporte detallado...</div>
+    </main>
+
+    <script>
+        const id = new URLSearchParams(window.location.search).get('id');
+        fetch("data/noticias.json")
+            .then(res => res.json())
+            .then(data => {
+                const item = data.find(n => n.id == id);
+                if(!item) {
+                    document.getElementById("loader").innerHTML = "La noticia no existe.";
+                    return;
+                }
+                document.title = `${item.titulo} | PulsoMX`;
+                document.getElementById("date").innerText = item.fecha;
+                document.getElementById("title").innerText = item.titulo;
+                document.getElementById("image").src = item.imagen;
+                document.getElementById("body").innerText = item.contenido;
+                
+                document.getElementById("loader").classList.add("hidden");
+                document.getElementById("content").classList.remove("hidden");
+            });
+    </script>
+</body>
+</html>
