@@ -4,16 +4,15 @@ import requests
 import xml.etree.ElementTree as ET
 import re
 from datetime import datetime
+from urllib.parse import quote
 
-# ⚙️ CONFIGURACIÓN DEL MODO TURBO
+# ⚙️ CONFIGURACIÓN
 MODO_TURBO = True 
 NOTICIAS_POR_CARRERA = 10 if MODO_TURBO else 1
 
 RSS_URL = "https://news.google.com/rss/search?q=when:1d+geo:Mexico&hl=es-419&gl=MX&ceid=MX:es-419"
 JSON_PATH = "data/noticias.json"
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GITHUB_USERNAME = "daniel00998888"
 
 def cargar_noticias():
     if not os.path.exists(JSON_PATH): return []
@@ -26,32 +25,34 @@ def guardar_noticias(noticias):
     with open(JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(noticias, f, ensure_ascii=False, indent=2)
 
-def extraer_imagen(item):
-    """Extrae la imagen y, si falla, imprime el contenido del item para debuguear."""
+def generar_imagen_relevante(titulo):
+    """Genera una URL de imagen usando el título para que sea coherente."""
+    # Limpiamos el título para que la IA de imágenes lo entienda mejor
+    titulo_limpio = re.sub(r'[^a-zA-Z0-9 ]', '', titulo)
+    prompt = quote(f"photorealistic news photography, {titulo_limpio}, high resolution, cinematic lighting")
+    return f"https://image.pollinations.ai/prompt/{prompt}?width=800&height=500&nologo=true&seed=42"
+
+def reescribir_con_ia(titulo_orig):
+    if not GROQ_API_KEY: return titulo_orig, "Noticia reciente", "Detalles en el enlace."
     
-    # 1. Intentar buscar en media:content (el estándar)
-    # Buscamos con y sin el namespace de Yahoo por si acaso
-    media = item.find('{http://search.yahoo.com/mrss/}content')
-    if media is not None and 'url' in media.attrib:
-        return media.attrib['url']
-        
-    # 2. Intentar en tag enclosure
-    enclosure = item.find('enclosure')
-    if enclosure is not None and 'url' in enclosure.attrib:
-        return enclosure.attrib['url']
-        
-    # 3. Buscar en description (Regex mejorado)
-    desc = item.find('description').text if item.find('description') is not None else ""
-    match = re.search(r'src=["\'](https?://[^"\']+)["\']', desc)
-    if match:
-        return match.group(1)
-        
-    # --- MODO DIAGNÓSTICO: Si llega aquí es que no encontró nada ---
-    print(f"DEBUG: No se encontró imagen. Etiquetas encontradas en el XML:")
-    for child in item:
-        print(f"Tag: {child.tag} | Texto: {str(child.text)[:50]}...")
-        
-    return "https://i.imgur.com/TuImagenLogo.jpg" # Tu logo aquí
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "user", "content": f"Reescribe: {titulo_orig}. Devuelve JSON con 'titulo', 'resumen', 'contenido'."}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.5
+    }
+    
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=20)
+        res = r.json()
+        contenido_crudo = res['choices'][0]['message']['content']
+        data = json.loads(contenido_crudo)
+        return data.get("titulo", titulo_orig), data.get("resumen", "Noticia importante."), data.get("contenido", "Detalles en el enlace.")
+    except:
+        return titulo_orig, "Noticia importante.", "Revisa el enlace original."
 
 def ejecutar():
     try:
@@ -66,13 +67,12 @@ def ejecutar():
     
     for item in root.findall(".//item")[:NOTICIAS_POR_CARRERA]:
         t_orig = item.find("title").text
-        # Verificamos si ya existe por el título
         if any(n.get('titulo_original') == t_orig for n in noticias_guardadas): continue
         
-        # --- AQUÍ LLAMAMOS AL DIAGNÓSTICO ---
-        img_url = extraer_imagen(item) 
-        
         t_ia, r_ia, c_ia = reescribir_con_ia(t_orig)
+        
+        # Generamos la imagen basada en el título real de la noticia
+        img_url = generar_imagen_relevante(t_ia)
         
         nuevo_id = max([n["id"] for n in noticias_guardadas], default=0) + 1
         noticias_guardadas.append({
@@ -81,63 +81,11 @@ def ejecutar():
             "fecha": datetime.today().strftime('%Y-%m-%d')
         })
         nuevos += 1
-        print(f"✅ Procesada: {t_ia[:30]} | Imagen: {img_url}")
+        print(f"✅ Procesada con imagen: {t_ia[:30]}")
         
     if nuevos > 0:
         guardar_noticias(noticias_guardadas)
         print(f"💾 Guardado {nuevos} noticias.")
-
-def reescribir_con_ia(titulo_orig):
-    if not GROQ_API_KEY: return titulo_orig, "Noticia de última hora", "Contenido en desarrollo."
-    
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    
-    prompt_texto = f"Actúa como periodista viral. Reescribe: {titulo_orig}. Devuelve JSON con 'titulo', 'resumen', 'contenido'."
-    
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [{"role": "user", "content": prompt_texto}],
-        "response_format": {"type": "json_object"},
-        "temperature": 0.5
-    }
-    
-    try:
-        r = requests.post(url, headers=headers, json=payload, timeout=20)
-        res = r.json()
-        contenido_crudo = res['choices'][0]['message']['content']
-        data = json.loads(contenido_crudo)
-        return data.get("titulo", titulo_orig), data.get("resumen", "Detalles aquí."), data.get("contenido", "Detalles aquí.")
-    except:
-        return titulo_orig, "Noticia importante.", "Revisa el enlace original."
-
-def ejecutar():
-    try:
-        res = requests.get(RSS_URL, timeout=10)
-        root = ET.fromstring(res.content)
-    except: return
-    
-    noticias_guardadas = cargar_noticias()
-    nuevos = 0
-    
-    for item in root.findall(".//item")[:NOTICIAS_POR_CARRERA]:
-        t_orig = item.find("title").text
-        if any(n['titulo_original'] == t_orig for n in noticias_guardadas): continue
-        
-        t_ia, r_ia, c_ia = reescribir_con_ia(t_orig)
-        img_url = extraer_imagen(item) # EXTRAE LA ORIGINAL
-        
-        nuevo_id = max([n["id"] for n in noticias_guardadas], default=0) + 1
-        noticias_guardadas.append({
-            "id": nuevo_id, "titulo_original": t_orig, "titulo": t_ia,
-            "resumen": r_ia, "contenido": c_ia, "imagen": img_url,
-            "fecha": datetime.today().strftime('%Y-%m-%d')
-        })
-        nuevos += 1
-        
-    if nuevos > 0:
-        guardar_noticias(noticias_guardadas)
-        print(f"✅ Procesadas {nuevos} noticias con imágenes originales.")
 
 if __name__ == "__main__":
     ejecutar()
