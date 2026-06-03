@@ -24,10 +24,51 @@ def guardar_noticias(noticias):
     with open(JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(noticias, f, ensure_ascii=False, indent=2)
 
+def extraer_palabras_clave(titulo):
+    """Extrae palabras clave relevantes del título para buscar imagen."""
+    # Palabras a ignorar (stopwords en español)
+    stopwords = {'de','la','el','en','y','a','los','las','del','un','una','por','con','se','que',
+                 'es','al','su','lo','le','más','pero','si','como','ya','muy','me','mi','nos',
+                 'sin','sobre','entre','cuando','hasta','desde','también','fue','han','hay',
+                 'para','este','esta','esto','ese','esa','ser','sus','les','fue','era','son'}
+    palabras = re.findall(r'\b[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]{4,}\b', titulo)
+    keywords = [p.lower() for p in palabras if p.lower() not in stopwords]
+    return ' '.join(keywords[:4]) if keywords else 'mexico news'
+
 def generar_imagen_relevante(titulo):
-    titulo_limpio = re.sub(r'[^a-zA-Z0-9 ]', '', titulo)
-    prompt = quote(f"dramatic news photo style, professional capture, {titulo_limpio[:120]}")
-    return f"https://image.pollinations.ai/prompt/{prompt}?width=800&height=500&nologo=true"
+    """Busca una imagen fotográfica real en Unsplash según el tema de la noticia."""
+    keywords = extraer_palabras_clave(titulo)
+
+    # Mapeo de temas comunes a búsquedas en inglés para mejor resultado
+    temas = {
+        'policia': 'police mexico', 'crimen': 'crime scene', 'violencia': 'crime mexico',
+        'gobierno': 'government mexico', 'presidente': 'president mexico', 'política': 'politics mexico',
+        'economía': 'economy mexico', 'peso': 'mexican economy', 'inflación': 'inflation economy',
+        'deportes': 'sports mexico', 'futbol': 'soccer mexico', 'liga': 'soccer match',
+        'terremoto': 'earthquake destruction', 'sismo': 'earthquake mexico', 'huracán': 'hurricane storm',
+        'incendio': 'fire emergency', 'accidente': 'accident road', 'hospital': 'hospital mexico',
+        'elecciones': 'election voting mexico', 'congreso': 'congress mexico',
+        'narco': 'security mexico', 'cartel': 'security forces mexico',
+        'educación': 'education school mexico', 'tecnología': 'technology innovation',
+        'salud': 'health medicine mexico', 'covid': 'health pandemic',
+    }
+
+    # Detectar tema
+    titulo_lower = titulo.lower()
+    busqueda = None
+    for clave, valor in temas.items():
+        if clave in titulo_lower:
+            busqueda = valor
+            break
+
+    if not busqueda:
+        busqueda = keywords if keywords else 'mexico city news'
+
+    # Usar Unsplash Source — imágenes reales sin API key
+    busqueda_encoded = quote(busqueda)
+    # seed basado en el título para que cada noticia tenga imagen única pero consistente
+    seed = abs(hash(titulo)) % 1000
+    return f"https://source.unsplash.com/800x500/?{busqueda_encoded}&sig={seed}"
 
 def reescribir_con_ia(titulo_orig):
     if not GROQ_API_KEY:
