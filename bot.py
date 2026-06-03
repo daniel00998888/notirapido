@@ -4,6 +4,8 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from bs4 import BeautifulSoup
+import base64
+import re
 
 # ⚙️ CONFIGURACIÓN
 MODO_TURBO = True
@@ -24,44 +26,58 @@ def guardar_noticias(noticias):
     with open(JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(noticias, f, ensure_ascii=False, indent=2)
 
-def obtener_url_e_imagen_real(google_url):
-    """Sigue la redirección de Google News para hallar la web real y su imagen"""
-    url_real = google_url
-    imagen_real = "https://images.unsplash.com/photo-1504711434269-d0385429813a?q=80&w=800&auto=format&fit=crop"
-    
+def decodificar_url_google(google_url):
+    """Rompe el código de Google News y extrae la URL del periódico real matemáticamente"""
     try:
-        # 1. Hacemos una petición para que Google nos redirija al periódico real
-        # Usamos un session para simular comportamiento de navegador fluido
-        with requests.Session() as s:
-            s.headers.update(HEADERS)
-            res_redirect = s.get(google_url, timeout=8, allow_redirects=True)
-            url_real = res_redirect.url # ¡Esta es la URL real del periódico!
-            
-            # 2. Si nos quedamos atrapados en Google, hacemos un segundo intento directo
-            if "news.google.com" in url_real:
-                # Buscamos en el HTML de la página de redirección intermedia de Google
-                soup_redirect = BeautifulSoup(res_redirect.content, 'html.parser')
-                a_tag = soup_redirect.find("a", href=True)
-                if a_tag and a_tag['href'].startswith("http"):
-                    url_real = a_tag['href']
-            
-            print(f"🔗 Fuente Real Encontrada: {url_real[:60]}...")
-            
-            # 3. Ahora que tenemos la URL real, entramos a buscar la imagen oficial
-            res_articulo = s.get(url_real, timeout=10, allow_redirects=True)
-            soup = BeautifulSoup(res_articulo.content, 'html.parser')
-            
-            img_tag = soup.find("meta", attrs={"property": "og:image"}) or soup.find("meta", attrs={"name": "twitter:image"})
-            if img_tag and img_tag.get("content"):
-                imagen_real = img_tag["content"]
-                if imagen_real.startswith("/"):
-                    from urllib.parse import urljoin
-                    imagen_real = urljoin(url_real, imagen_real)
-                    
-    except Exception as e:
-        print(f"⚠️ Error siguiendo rastro de imagen: {e}")
+        if "news.google.com/rss/articles" not in google_url:
+            return google_url
         
-    return url_real, imagen_real
+        # Extraemos el código encriptado
+        codigo = google_url.split("/")[-1].split("?")[0]
+        # Le damos el formato correcto para base64
+        codigo += "=" * ((4 - len(codigo) % 4) % 4)
+        
+        # Usamos latin1 para no rompernos con los caracteres binarios ocultos de Google
+        decodificado = base64.urlsafe_b64decode(codigo).decode('latin1')
+        
+        # Usamos una expresión regular para pescar solo la URL real dentro de la basura binaria
+        urls = re.findall(r'https?://[a-zA-Z0-9\-\.\/\?\&\=\_\%]+', decodificado)
+        
+        if urls:
+            return urls[0]
+    except Exception as e:
+        print(f"⚠️ Error decodificando: {e}")
+        
+    return google_url
+
+def obtener_url_e_imagen_real(google_url):
+    # 1. ¡Extraemos la URL real SIN visitar Google!
+    url_real = decodificar_url_google(google_url)
+    print(f"🔗 URL decodificada exitosamente: {url_real[:60]}...")
+    
+    # 2. Si por algún milagro sigue siendo de google, cancelamos para no traer su logo
+    if "news.google.com" in url_real:
+        return url_real, "https://images.unsplash.com/photo-1504711434269-d0385429813a?q=80&w=800&auto=format&fit=crop"
+
+    # 3. Vamos directamente a la página del periódico a sacar su foto
+    try:
+        res = requests.get(url_real, headers=HEADERS, timeout=12, allow_redirects=True)
+        soup = BeautifulSoup(res.content, 'html.parser')
+        
+        img_tag = soup.find("meta", attrs={"property": "og:image"}) or soup.find("meta", attrs={"name": "twitter:image"})
+        
+        if img_tag and img_tag.get("content"):
+            imagen_real = img_tag["content"]
+            # Reparar URLs relativas si el periódico está mal configurado
+            if imagen_real.startswith("/"):
+                from urllib.parse import urljoin
+                imagen_real = urljoin(url_real, imagen_real)
+            return url_real, imagen_real
+            
+    except Exception as e:
+        print(f"⚠️ Error extrayendo imagen del periódico: {e}")
+        
+    return url_real, "https://images.unsplash.com/photo-1504711434269-d0385429813a?q=80&w=800&auto=format&fit=crop"
 
 def reescribir_con_ia(titulo_orig):
     if not GROQ_API_KEY:
@@ -113,7 +129,7 @@ def ejecutar():
         print(f"🔄 Procesando: {t_orig[:50]}...")
         t_ia, r_ia, c_ia = reescribir_con_ia(t_orig)
         
-        # Obtenemos tanto la URL final como la imagen real usando el nuevo método tracker
+        # Aquí sucede la magia: decodifica el link y saca la imagen real
         url_final, img_url = obtener_url_e_imagen_real(link)
 
         noticias_guardadas.append({
@@ -127,10 +143,13 @@ def ejecutar():
             "url_origen": url_final
         })
         nuevos += 1
+        print(f"✅ Noticia guardada con éxito.")
     
     if nuevos > 0:
         guardar_noticias(noticias_guardadas[-100:])
-        print(f"✅ Guardadas {nuevos} noticias.")
+        print(f"💾 Guardadas {nuevos} noticias.")
+    else:
+        print("ℹ️ No hay noticias nuevas.")
 
 if __name__ == "__main__":
     ejecutar()
