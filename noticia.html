@@ -8,7 +8,7 @@
     <meta property="og:type" content="article">
     <title id="page-title">Noticia | PulsoMX</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght=700;900&family=Source+Sans+3:ital,wght=0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --rojo: #c0152a; --rojo-oscuro: #8b0f1e; --amarillo: #f5b800; --gris: #f4f4f2; --texto: #1a1a2e; --texto-suave: #6b7280; }
@@ -27,7 +27,7 @@
         .header-nav a:hover { color: var(--amarillo); }
         @media (max-width: 480px) { .header-nav .hide-xs { display: none; } }
 
-        /* AD — desktop muestra 728, móvil muestra 320 */
+        /* AD */
         .ad-top { text-align: center; padding: 8px; background: #f0f0f0; border-bottom: 1px solid #e0e0e0; overflow: hidden; }
         .ad-728 { display: block; }
         .ad-320 { display: none; }
@@ -49,10 +49,8 @@
         .article-meta i { color: var(--rojo); }
         #image { width: 100%; height: clamp(180px, 40vw, 380px); object-fit: cover; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
 
-        /* AD dentro del artículo */
         .ad-article { text-align: center; margin: 24px 0; overflow: hidden; }
         .ad-article-native { margin: 24px 0; overflow: hidden; }
-        /* iframe nativo al 100% de ancho */
         .ad-article-native iframe { width: 100% !important; max-width: 100%; height: 250px; border: none; }
 
         #body { font-size: clamp(0.95rem, 2.5vw, 1.05rem); line-height: 1.85; color: #2d2d2d; word-break: break-word; }
@@ -100,7 +98,7 @@
         #loader { text-align: center; padding: 60px 16px; color: var(--texto-suave); }
     </style>
 
-    <script src="https://alarmpenguinmelt.com/c9/7f/52/c97f52ee91d1bd3652fce5a2f49b61c5.js"></script>
+    <script src="https://alarmpenguinmelt.com/c9/7f/52/c97f52ee91d1bd3652fce5a2f49b61c5.js" async></script>
 </head>
 <body>
 
@@ -108,7 +106,7 @@
         <div class="header-inner">
             <a href="index.html" class="logo">⚡ PULSO<span>MX</span></a>
             <nav class="header-nav">
-                <a href="index.html"><i class="fa-solid fa-arrow-left"></i> <span class="hide-xs">Inicio</span></a>
+                <a id="nav-inicio" href="index.html"><i class="fa-solid fa-arrow-left"></i> <span class="hide-xs">Inicio</span></a>
                 <a href="privacidad.html" class="hide-xs">Privacidad</a>
                 <a href="contacto.html">Contacto</a>
             </nav>
@@ -132,7 +130,7 @@
     <div id="article-wrapper" class="article-wrapper" style="display:none;">
         <main>
             <div class="breadcrumb">
-                <a href="index.html">Inicio</a> › <span id="breadcrumb-title">Noticia</span>
+                <a id="bread-inicio" href="index.html">Inicio</a> › <span id="breadcrumb-title">Noticia</span>
             </div>
 
             <article>
@@ -190,6 +188,15 @@
         </aside>
     </div>
 
+    <div id="reward-widget" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width: 90%; max-width: 400px; background:#1a1a2e; border-radius:20px; padding:15px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:99999; text-align:center; border: 1px solid #333; transition: opacity 0.5s;">
+        <div id="reward-text" style="color:#fff; font-size:14px; font-weight:bold; margin-bottom:10px;">
+            <i class="fa-solid fa-book-open style='color:#f5b800;'"></i> Leyendo para ganar 15 NC...
+        </div>
+        <div style="width:100%; background:#2a2a40; border-radius:10px; height:12px; overflow:hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+            <div id="reward-progress" style="width:0%; height:100%; background: linear-gradient(90deg, #f5b800, #ffea00); transition: width 1s linear;"></div>
+        </div>
+    </div>
+
     <footer>
         <div class="footer-links">
             <a href="index.html">Inicio</a>
@@ -202,7 +209,16 @@
     </footer>
 
     <script>
-        const id = new URLSearchParams(window.location.search).get('id');
+        const urlParamsReward = new URLSearchParams(window.location.search);
+        const id = urlParamsReward.get('id');
+        const userId = urlParamsReward.get('uid');
+        
+        // Mantener el uid vivo si regresan al inicio
+        if (userId) {
+            document.getElementById('nav-inicio').href = `index.html?uid=${userId}`;
+            document.getElementById('bread-inicio').href = `index.html?uid=${userId}`;
+        }
+
         fetch("data/noticias.json")
             .then(res => res.json())
             .then(data => {
@@ -231,11 +247,60 @@
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('article-wrapper').style.display = 'grid';
 
+                // --- LÓGICA DE LA BARRA DE PROGRESO AUTOMÁTICA ---
+                if (userId && id) {
+                    const widget = document.getElementById('reward-widget');
+                    widget.style.display = 'block';
+                    
+                    const tiempoTotal = 30; 
+                    let segundosActuales = 0;
+                    const progressBar = document.getElementById('reward-progress');
+                    const rewardText = document.getElementById('reward-text');
+
+                    const intervaloProgreso = setInterval(async () => {
+                        segundosActuales++;
+                        const porcentaje = (segundosActuales / tiempoTotal) * 100;
+                        progressBar.style.width = porcentaje + '%';
+                        
+                        if (segundosActuales >= tiempoTotal) {
+                            clearInterval(intervaloProgreso);
+                            rewardText.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color:#f5b800;"></i> Procesando tus NetCoins...';
+                            
+                            try {
+                                const response = await fetch('https://meiwuluwrdjszxeyoqtt.supabase.co/functions/v1/recompensar-noticia', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ uid: userId, newsId: id })
+                                });
+
+                                const result = await response.json();
+
+                                if (response.ok) {
+                                    rewardText.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> ¡+15 NetCoins Acreditadas!';
+                                    progressBar.style.background = '#10b981'; 
+                                    setTimeout(() => {
+                                        widget.style.opacity = '0';
+                                        setTimeout(() => widget.style.display = 'none', 500);
+                                    }, 4000);
+                                } else {
+                                    const msj = result.error === 'ya_reclamada' ? 'Ya cobraste esta noticia' : 'Error al reclamar';
+                                    rewardText.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color:#ef4444;"></i> ' + msj;
+                                    progressBar.style.background = '#ef4444';
+                                }
+                            } catch (err) {
+                                rewardText.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> Error de red';
+                                progressBar.style.background = '#ef4444';
+                            }
+                        }
+                    }, 1000);
+                }
+
+                const complementoUid = userId ? `&uid=${userId}` : '';
                 const relacionadas = data.filter(n => String(n.id) !== String(id)).slice(-4).reverse();
                 const relGrid = document.getElementById('related-grid');
                 relacionadas.forEach(n => {
                     relGrid.innerHTML += `
-                        <a href="noticia.html?id=${n.id}" class="related-card">
+                        <a href="noticia.html?id=${n.id}${complementoUid}" class="related-card">
                             <img src="${n.imagen}" alt="${n.titulo}" loading="lazy">
                             <div><h4>${n.titulo}</h4></div>
                         </a>`;
@@ -244,7 +309,7 @@
                 const sidebar = document.getElementById('sidebar-list');
                 data.slice(-5).reverse().forEach(n => {
                     sidebar.innerHTML += `
-                        <a href="noticia.html?id=${n.id}" class="sidebar-news-item">
+                        <a href="noticia.html?id=${n.id}${complementoUid}" class="sidebar-news-item">
                             <img src="${n.imagen}" alt="${n.titulo}" loading="lazy">
                             <div><span>${n.fecha}</span><h4>${n.titulo}</h4></div>
                         </a>`;
@@ -264,85 +329,5 @@
         style="position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; border: none; z-index: 9999;" 
         title="Social Bar Ad">
     </iframe>
-    <div id="reward-widget" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); width: 90%; max-width: 400px; background:#1a1a2e; border-radius:20px; padding:15px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:9999; text-align:center; border: 1px solid #333; transition: opacity 0.5s;">
-    
-    <div id="reward-text" style="color:#fff; font-size:14px; font-weight:bold; margin-bottom:10px; font-family: 'Source Sans 3', sans-serif;">
-        <i class="fa-solid fa-book-open text-sky-400"></i> Leyendo para ganar 15 NC...
-    </div>
-    
-    <div style="width:100%; background:#2a2a40; border-radius:10px; height:12px; overflow:hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
-        <div id="reward-progress" style="width:0%; height:100%; background: linear-gradient(90deg, #f5b800, #ffea00); transition: width 1s linear, background-color 0.3s;"></div>
-    </div>
-</div>
-
-<script>
-    // 1. Detectamos los datos en la URL
-    const urlParamsReward = new URLSearchParams(window.location.search);
-    const userId = urlParamsReward.get('uid');
-    const newsId = urlParamsReward.get('id');
-
-    if (userId && newsId) {
-        // Mostramos el widget
-        const widget = document.getElementById('reward-widget');
-        widget.style.display = 'block';
-        
-        // Configuración de la barra
-        const tiempoTotalSegundos = 30; // Tiempo que debe quedarse leyendo
-        let segundosActuales = 0;
-        
-        const progressBar = document.getElementById('reward-progress');
-        const rewardText = document.getElementById('reward-text');
-
-        // 2. Iniciamos el llenado automático
-        const intervaloProgreso = setInterval(async () => {
-            segundosActuales++;
-            
-            // Calculamos el porcentaje
-            const porcentaje = (segundosActuales / tiempoTotalSegundos) * 100;
-            progressBar.style.width = porcentaje + '%';
-            
-            // 3. Cuando la barra llega al 100%
-            if (segundosActuales >= tiempoTotalSegundos) {
-                clearInterval(intervaloProgreso); // Detenemos el reloj
-                
-                // Cambiamos el texto a "Otorgando..."
-                rewardText.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color:#f5b800;"></i> Verificando recompensa...';
-                
-                try {
-                    // Llamamos a tu Edge Function automáticamente
-                    const response = await fetch('https://meiwuluwrdjszxeyoqtt.supabase.co/functions/v1/recompensar-noticia', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ uid: userId, newsId: newsId })
-                    });
-
-                    const result = await response.json();
-
-                    if (response.ok) {
-                        // ¡Éxito! Pintamos la barra de verde
-                        rewardText.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> ¡15 NC Acreditadas con éxito!';
-                        progressBar.style.background = '#10b981'; 
-                        
-                        // Ocultamos el widget después de 4 segundos para que siga leyendo a gusto
-                        setTimeout(() => {
-                            widget.style.opacity = '0';
-                            setTimeout(() => widget.style.display = 'none', 500);
-                        }, 4000);
-
-                    } else {
-                        // Si ya la había leído (Error)
-                        const msjError = result.error === 'ya_reclamada' ? 'Ya cobraste esta noticia hoy' : 'Error al reclamar';
-                        rewardText.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color:#ef4444;"></i> ' + msjError;
-                        progressBar.style.background = '#ef4444'; // Barra roja
-                    }
-                } catch (err) {
-                    // Si se le fue el internet
-                    rewardText.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i> Error de conexión';
-                    progressBar.style.background = '#ef4444'; 
-                }
-            }
-        }, 1000); // Se actualiza cada 1 segundo
-    }
-</script>
 </body>
 </html>
